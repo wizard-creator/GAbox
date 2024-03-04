@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+'''
+@ File Name      :  tools.py
+@ Time           :  2024/03/02 19:25:28
+@ Author         :  Chunhui Zhang
+@ Version        :  0.1
+@ Contact        :  1772662323@qq.com
+@ Description    :  description of the code
+@ History        :  0.1(2024/03/02) - description of the code(your name)
+'''
+
+
+
 import numpy as np
 from functools import lru_cache
 from types import MethodType, FunctionType
@@ -27,7 +41,7 @@ def set_run_mode(func, mode):
     return
 
 
-def func_transformer(func, n_processes):
+def func_transformer(func):
     '''
     transform this kind of function:
     ```
@@ -51,70 +65,40 @@ def func_transformer(func, n_processes):
     :return:
     '''
 
-    # to support the former version
-    if (func.__class__ is FunctionType) and (func.__code__.co_argcount > 1):
-        warnings.warn('multi-input might be deprecated in the future, use fun(p) instead')
-
-        def func_transformed(X):
-            return np.array([func(*tuple(x)) for x in X])
-
-        return func_transformed
-
-    # to support the former version
-    if (func.__class__ is MethodType) and (func.__code__.co_argcount > 2):
-        warnings.warn('multi-input might be deprecated in the future, use fun(p) instead')
-
-        def func_transformed(X):
-            return np.array([func(tuple(x)) for x in X])
-
-        return func_transformed
-
-    # to support the former version
-    if getattr(func, 'is_vector', False):
-        warnings.warn('''
-        func.is_vector will be deprecated in the future, use set_run_mode(func, 'vectorization') instead
-        ''')
-        set_run_mode(func, 'vectorization')
 
     mode = getattr(func, 'mode', 'others')
-    valid_mode = ('common', 'multithreading', 'multiprocessing', 'vectorization', 'cached', 'others')
+    valid_mode = ('common',  'multiprocessing','others')
     assert mode in valid_mode, 'valid mode should be in ' + str(valid_mode)
-    if mode == 'vectorization':
-        return func
-    elif mode == 'cached':
-        @lru_cache(maxsize=None)
-        def func_cached(x):
-            return func(x)
 
-        def func_warped(X):
-            return np.array([func_cached(tuple(x)) for x in X])
 
-        return func_warped
-    elif mode == 'multithreading':
-        assert n_processes >= 0, 'n_processes should >= 0'
-        from multiprocessing.dummy import Pool as ThreadPool
-        if n_processes == 0:
-            pool = ThreadPool()
-        else:
-            pool = ThreadPool(n_processes)
+    if mode == 'multiprocessing':
 
-        def func_transformed(X):
-            return np.array(pool.map(func, X))
+        def func_transformed(X, train_data):
+            size_pop = len(X)
 
-        return func_transformed
-    elif mode == 'multiprocessing':
-        assert n_processes >= 0, 'n_processes should >= 0'
-        from multiprocessing import Pool
-        if n_processes == 0:
-            pool = Pool()
-        else:
-            pool = Pool(n_processes)
-        def func_transformed(X):
-            return np.array(pool.map(func, X))
+            result_list = []
+            result = multiprocessing.Queue()
+            a = X[0]
+            processes = [multiprocessing.Process(target=func, args=(train_data, X[i], result))
+             for i in range(size_pop)]
+
+            for p in processes:
+                print("start")
+                p.start()
+
+            for p in processes:
+                p.join()
+                print("end")
+                result_list.append(result.get())
+
+
+            return np.array(result_list)
 
         return func_transformed
 
-    else:  # common
+
+
+    else:  # common & others
         def func_transformed(X):
             return np.array([func(x) for x in X])
 

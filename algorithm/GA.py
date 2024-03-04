@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# @Time    : 2019/8/20
-# @Author  : github.com/guofei9987
+'''
+@ File Name      :  GA.py
+@ Time           :  2024/03/02 19:25:11
+@ Author         :  Chunhui Zhang
+@ Version        :  0.1
+@ Contact        :  1772662323@qq.com
+@ Description    :  description of the code
+@ History        :  0.1(2024/03/02) - description of the code(your name)
+'''
 
 
 import numpy as np
 from .base import SkoBase
-from sko.tools import func_transformer
+from .tools import func_transformer
 from abc import ABCMeta, abstractmethod
 from .operators import crossover, mutation, ranking, selection
 
@@ -14,8 +21,7 @@ from .operators import crossover, mutation, ranking, selection
 class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
     def __init__(self, func, n_dim,
                  size_pop=50, max_iter=200, prob_mut=0.001,
-                 constraint_eq=tuple(), constraint_ueq=tuple(), early_stop=None, n_processes=0,
-                 data=None):
+                 constraint_eq=tuple(), constraint_ueq=tuple(), early_stop=None, n_processes=0):
         self.func = func_transformer(func)
         assert size_pop % 2 == 0, 'size_pop must be even integer'
         self.size_pop = size_pop  # size of population
@@ -75,12 +81,12 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
     def mutation(self):
         pass
 
-    def run(self, max_iter=None, data=None):
-        self.max_iter = max_iter or self.max_iter
+    def run(self, data=None):
+        self.max_iter = self.max_iter
         best = []
         for i in range(self.max_iter):
             self.X = self.chrom2x(self.Chrom)
-            self.Y = self.x2y()
+            self.Y = self.x2y(data)
             self.ranking()
             self.selection()
             self.crossover()
@@ -154,9 +160,8 @@ class GA(GeneticAlgorithmBase):
                  prob_mut=0.001,
                  lb=-1, ub=1,
                  constraint_eq=tuple(), constraint_ueq=tuple(),
-                 precision=1e-7, early_stop=None, n_processes=0,
-                 train_data=None):
-        super().__init__(func, n_dim, size_pop, max_iter, prob_mut, constraint_eq, constraint_ueq, early_stop, n_processes=n_processes, data=train_data)
+                 precision=1e-7, early_stop=None, n_processes=0):
+        super().__init__(func, n_dim, size_pop, max_iter, prob_mut, constraint_eq, constraint_ueq, early_stop, n_processes=n_processes)
 
         self.lb, self.ub = np.array(lb) * np.ones(self.n_dim), np.array(ub) * np.ones(self.n_dim)
         self.precision = np.array(precision) * np.ones(self.n_dim)  # works when precision is int, float, list or array
@@ -191,6 +196,7 @@ class GA(GeneticAlgorithmBase):
         _, len_gray_code = gray_code.shape
         b = gray_code.cumsum(axis=1) % 2
         mask = np.logspace(start=1, stop=len_gray_code, base=0.5, num=len_gray_code)
+
         return (b * mask).sum(axis=1) / mask.sum()
 
     def chrom2x(self, Chrom):
@@ -201,7 +207,11 @@ class GA(GeneticAlgorithmBase):
                 Chrom_temp = Chrom[:, :cumsum_len_segment[0]]
             else:
                 Chrom_temp = Chrom[:, cumsum_len_segment[i - 1]:cumsum_len_segment[i]]
-            X[:, i] = self.gray2rv(Chrom_temp)
+
+            if Chrom_temp.size == 0:
+                X[:, i] = self.ub[i]
+            else:
+                X[:, i] = self.gray2rv(Chrom_temp)
 
         if self.int_mode:
             X = self.lb + (self.ub_extend - self.lb) * X
