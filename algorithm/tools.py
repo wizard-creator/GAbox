@@ -83,12 +83,10 @@ def func_transformer(func):
              for i in range(size_pop)]
 
             for p in processes:
-                print("start")
                 p.start()
 
             for p in processes:
                 p.join()
-                print("end")
                 result_list.append(result.get())
 
 
