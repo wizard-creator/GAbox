@@ -78,7 +78,6 @@ def func_transformer(func):
 
             result_list = []
             result = multiprocessing.Queue()
-            a = X[0]
             processes = [multiprocessing.Process(target=func, args=(train_data, X[i], result))
              for i in range(size_pop)]
 
