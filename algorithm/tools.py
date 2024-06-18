@@ -13,14 +13,18 @@
 
 
 import numpy as np
-from functools import lru_cache
-from types import MethodType, FunctionType
 import warnings
 import sys
 import multiprocessing
+import ray
+import logging
+import queue
 
 if sys.platform != 'win32':
     multiprocessing.set_start_method('fork')
+
+logging.basicConfig(filename='tools.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 
 def set_run_mode(func, mode):
@@ -67,7 +71,7 @@ def func_transformer(func):
 
 
     mode = getattr(func, 'mode', 'others')
-    valid_mode = ('common',  'multiprocessing','others')
+    valid_mode = ('common',  'multiprocessing', 'ray', 'others')
     assert mode in valid_mode, 'valid mode should be in ' + str(valid_mode)
 
 
@@ -75,25 +79,50 @@ def func_transformer(func):
 
         def func_transformed(X, train_data):
             size_pop = len(X)
-
             result_list = []
             result = multiprocessing.Queue()
-            processes = [multiprocessing.Process(target=func, args=(train_data, X[i], result))
-             for i in range(size_pop)]
+            processes = [multiprocessing.Process(target=func, args=(train_data, X[i], i, result))
+                        for i in range(size_pop)]
 
             for p in processes:
                 p.start()
 
             for p in processes:
                 p.join()
-                result_list.append(result.get())
 
+            try:
+                while not result.empty():
+                    output = result.get(timeout=20)
+                    if output[1] is None:
+                        continue
+                    result_list.append(output)
+            except queue.Empty:
+                logging.error("Timeout occurred when getting data from the queue.")
 
-            return np.array(result_list)
+            if len(result_list) == 0:
+                logging.error("No results to process.")
+                return np.array([])
+
+            result_array = np.array(result_list)
+            sorted_indices = np.argsort(result_array[:, 0])
+            result_array = result_array[sorted_indices]
+            return result_array[:, 1]
 
         return func_transformed
 
+    if mode == 'ray':
+        def func_transformed(X, train_data):
+            size_pop = len(X)
+            result_ids = []
 
+            for i in range(size_pop):
+                result_id = func.remote(train_data, X[i])
+                result_ids.append(result_id)
+
+            results = ray.get(result_ids)
+            return np.array(results)
+
+        return func_transformed
 
     else:  # common & others
         def func_transformed(X):

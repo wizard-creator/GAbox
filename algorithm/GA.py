@@ -12,11 +12,17 @@
 
 
 import numpy as np
+import time
+import logging
+from tqdm import tqdm
+
 from .base import SkoBase
 from .tools import func_transformer
 from abc import ABCMeta, abstractmethod
 from .operators import crossover, mutation, ranking, selection
 
+
+logging.basicConfig(filename='ga.log',level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
     def __init__(self, func, n_dim,
@@ -56,6 +62,9 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
 
     def x2y(self, train_data):
         self.Y_raw = self.func(self.X, train_data)
+        mean_value = np.nanmean(self.Y_raw)
+        self.Y_raw[np.isnan(self.Y_raw)] = mean_value
+        print('we get self.Y_raw!!!!')
         if not self.has_constraint:
             self.Y = self.Y_raw
         else:
@@ -84,18 +93,34 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
     def run(self, data=None):
         self.max_iter = self.max_iter
         best = []
-        for i in range(self.max_iter):
-            self.X = self.chrom2x(self.Chrom)
-            self.Y = self.x2y(data)
-            self.ranking()
-            self.selection()
-            self.crossover()
-            self.mutation()
+        for i in tqdm(range(self.max_iter), desc='Iteration progress'):
+            t_begin = time.time()
+            logging.debug(f'Starting iteration {i+1}/{self.max_iter}')
+
+            try:
+                self.X = self.chrom2x(self.Chrom)
+                self.Y = self.x2y(data)
+                logging.debug('self.x2y executed successfully.')
+                logging.debug(f'Y of iteration {i+1}:  {self.Y}')
+            except Exception as e:
+                logging.error(f'Error during self.x2y(data) at iteration {i+1}: {str(e)}')
+                continue  # Optionally skip this iteration or use break to terminate
+
+            try:
+                self.ranking()
+                self.selection()
+                self.crossover()
+                self.mutation()
+                logging.debug('Ranking, selection, crossover, mutation steps completed.')
+            except Exception as e:
+                logging.error(f'Error during ranking~mutation at iteration {i+1}: {str(e)}')
+                continue
 
             # record the best ones
             generation_best_index = self.FitV.argmax()
             self.generation_best_X.append(self.X[generation_best_index, :])
             self.generation_best_Y.append(self.Y[generation_best_index])
+            logging.debug(f'best_Y of iteration {i+1}:  {self.Y[generation_best_index]}')
             self.all_history_Y.append(self.Y)
             self.all_history_FitV.append(self.FitV)
 
@@ -103,9 +128,12 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
                 best.append(min(self.generation_best_Y))
                 if len(best) >= self.early_stop:
                     if best.count(min(best)) == len(best):
+                        logging.info(f'Early stopping triggered after {i+1} iterations.')
                         break
                     else:
                         best.pop(0)
+            logging.debug(f'Time cost for iteration {i+1}: {time.time() - t_begin} seconds')
+
 
         global_best_index = np.array(self.generation_best_Y).argmin()
         self.best_x = self.generation_best_X[global_best_index]
@@ -268,4 +296,3 @@ class GA(GeneticAlgorithmBase):
             register('chrom2x', chrom2x)
 
         return self
-
