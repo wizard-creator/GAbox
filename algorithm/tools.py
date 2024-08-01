@@ -77,11 +77,11 @@ def func_transformer(func):
 
     if mode == 'multiprocessing':
 
-        def func_transformed(X, train_data):
+        def func_transformed(X):
             size_pop = len(X)
             result_list = []
             result = multiprocessing.Queue()
-            processes = [multiprocessing.Process(target=func, args=(train_data, X[i], i, result))
+            processes = [multiprocessing.Process(target=func._evaluate, args=(X[i], i, result))
                         for i in range(size_pop)]
 
             for p in processes:
@@ -106,6 +106,7 @@ def func_transformer(func):
             result_array = np.array(result_list)
             sorted_indices = np.argsort(result_array[:, 0])
             result_array = result_array[sorted_indices]
+            print("result_array")
             return result_array[:, 1]
 
         return func_transformed

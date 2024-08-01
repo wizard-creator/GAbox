@@ -25,10 +25,10 @@ from .operators import crossover, mutation, ranking, selection
 logging.basicConfig(filename='ga.log',level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
-    def __init__(self, func, n_dim,
+    def __init__(self, problem, n_dim,
                  size_pop=50, max_iter=200, prob_mut=0.001,
                  constraint_eq=tuple(), constraint_ueq=tuple(), early_stop=None, n_processes=0):
-        self.func = func_transformer(func)
+        self.func = func_transformer(problem)
         assert size_pop % 2 == 0, 'size_pop must be even integer'
         self.size_pop = size_pop  # size of population
         self.max_iter = max_iter
@@ -60,8 +60,8 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
     def chrom2x(self, Chrom):
         pass
 
-    def x2y(self, train_data):
-        self.Y_raw = self.func(self.X, train_data)
+    def x2y(self):
+        self.Y_raw = self.func(self.X)
         mean_value = np.nanmean(self.Y_raw)
         self.Y_raw[np.isnan(self.Y_raw)] = mean_value
         print('we get self.Y_raw!!!!')
@@ -90,7 +90,7 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
     def mutation(self):
         pass
 
-    def run(self, data=None):
+    def run(self):
         self.max_iter = self.max_iter
         best = []
         for i in tqdm(range(self.max_iter), desc='Iteration progress'):
@@ -99,7 +99,7 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
 
             try:
                 self.X = self.chrom2x(self.Chrom)
-                self.Y = self.x2y(data)
+                self.Y = self.x2y()
                 logging.debug('self.x2y executed successfully.')
                 logging.debug(f'Y of iteration {i+1}:  {self.Y}')
             except Exception as e:
@@ -137,7 +137,7 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
 
         global_best_index = np.array(self.generation_best_Y).argmin()
         self.best_x = self.generation_best_X[global_best_index]
-        self.best_y = self.func(np.array([self.best_x]), data)
+        self.best_y = self.func(np.array([self.best_x]))
         return self.best_x, self.best_y
 
     fit = run
@@ -183,13 +183,13 @@ class GA(GeneticAlgorithmBase):
     https://github.com/guofei9987/scikit-opt/blob/master/examples/demo_ga.py
     """
 
-    def __init__(self, func, n_dim,
+    def __init__(self, problem, n_dim,
                  size_pop=50, max_iter=200,
                  prob_mut=0.001,
                  lb=-1, ub=1,
                  constraint_eq=tuple(), constraint_ueq=tuple(),
                  precision=1e-7, early_stop=None, n_processes=0):
-        super().__init__(func, n_dim, size_pop, max_iter, prob_mut, constraint_eq, constraint_ueq, early_stop, n_processes=n_processes)
+        super().__init__(problem, n_dim, size_pop, max_iter, prob_mut, constraint_eq, constraint_ueq, early_stop, n_processes=n_processes)
 
         self.lb, self.ub = np.array(lb) * np.ones(self.n_dim), np.array(ub) * np.ones(self.n_dim)
         self.precision = np.array(precision) * np.ones(self.n_dim)  # works when precision is int, float, list or array
