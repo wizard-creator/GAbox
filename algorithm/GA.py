@@ -22,13 +22,13 @@ from abc import ABCMeta, abstractmethod
 from .operators import crossover, mutation, ranking, selection
 
 
-logging.basicConfig(filename='ga.log',level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='ga.log',level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
-    def __init__(self, problem, n_dim,
+    def __init__(self, func, n_dim,
                  size_pop=50, max_iter=200, prob_mut=0.001,
                  constraint_eq=tuple(), constraint_ueq=tuple(), early_stop=None, n_processes=0):
-        self.func = func_transformer(problem)
+        self.func = func_transformer(func)
         assert size_pop % 2 == 0, 'size_pop must be even integer'
         self.size_pop = size_pop  # size of population
         self.max_iter = max_iter
@@ -95,13 +95,13 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
         best = []
         for i in tqdm(range(self.max_iter), desc='Iteration progress'):
             t_begin = time.time()
-            logging.debug(f'Starting iteration {i+1}/{self.max_iter}')
+            logging.info(f'Starting iteration {i+1}/{self.max_iter}')
 
             try:
                 self.X = self.chrom2x(self.Chrom)
                 self.Y = self.x2y()
-                logging.debug('self.x2y executed successfully.')
-                logging.debug(f'Y of iteration {i+1}:  {self.Y}')
+                logging.info('self.x2y executed successfully.')
+                logging.info(f'Y of iteration {i+1}:  {self.Y}')
             except Exception as e:
                 logging.error(f'Error during self.x2y(data) at iteration {i+1}: {str(e)}')
                 continue  # Optionally skip this iteration or use break to terminate
@@ -111,7 +111,7 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
                 self.selection()
                 self.crossover()
                 self.mutation()
-                logging.debug('Ranking, selection, crossover, mutation steps completed.')
+                logging.info('Ranking, selection, crossover, mutation steps completed.')
             except Exception as e:
                 logging.error(f'Error during ranking~mutation at iteration {i+1}: {str(e)}')
                 continue
@@ -120,7 +120,7 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
             generation_best_index = self.FitV.argmax()
             self.generation_best_X.append(self.X[generation_best_index, :])
             self.generation_best_Y.append(self.Y[generation_best_index])
-            logging.debug(f'best_Y of iteration {i+1}:  {self.Y[generation_best_index]}')
+            logging.info(f'best_Y of iteration {i+1}:  {self.Y[generation_best_index]}')
             self.all_history_Y.append(self.Y)
             self.all_history_FitV.append(self.FitV)
 
@@ -132,7 +132,7 @@ class GeneticAlgorithmBase(SkoBase, metaclass=ABCMeta):
                         break
                     else:
                         best.pop(0)
-            logging.debug(f'Time cost for iteration {i+1}: {time.time() - t_begin} seconds')
+            logging.info(f'Time cost for iteration {i+1}: {time.time() - t_begin} seconds')
 
 
         global_best_index = np.array(self.generation_best_Y).argmin()
@@ -183,13 +183,13 @@ class GA(GeneticAlgorithmBase):
     https://github.com/guofei9987/scikit-opt/blob/master/examples/demo_ga.py
     """
 
-    def __init__(self, problem, n_dim,
+    def __init__(self, func, n_dim,
                  size_pop=50, max_iter=200,
                  prob_mut=0.001,
                  lb=-1, ub=1,
                  constraint_eq=tuple(), constraint_ueq=tuple(),
                  precision=1e-7, early_stop=None, n_processes=0):
-        super().__init__(problem, n_dim, size_pop, max_iter, prob_mut, constraint_eq, constraint_ueq, early_stop, n_processes=n_processes)
+        super().__init__(func, n_dim, size_pop, max_iter, prob_mut, constraint_eq, constraint_ueq, early_stop, n_processes=n_processes)
 
         self.lb, self.ub = np.array(lb) * np.ones(self.n_dim), np.array(ub) * np.ones(self.n_dim)
         self.precision = np.array(precision) * np.ones(self.n_dim)  # works when precision is int, float, list or array

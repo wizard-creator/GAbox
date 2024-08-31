@@ -81,7 +81,7 @@ def func_transformer(func):
             size_pop = len(X)
             result_list = []
             result = multiprocessing.Queue()
-            processes = [multiprocessing.Process(target=func._evaluate, args=(X[i], i, result))
+            processes = [multiprocessing.Process(target=func, args=(X[i], i, result))
                         for i in range(size_pop)]
 
             for p in processes:
@@ -111,7 +111,7 @@ def func_transformer(func):
 
         return func_transformed
 
-    if mode == 'ray':
+    elif mode == 'ray':
         def func_transformed(X, train_data):
             size_pop = len(X)
             result_ids = []
@@ -125,8 +125,11 @@ def func_transformer(func):
 
         return func_transformed
 
-    else:  # common & others
+    elif mode == 'common':  # common & others
         def func_transformed(X):
-            return np.array([func(x) for x in X])
+            return func(X)
 
-        return func_transformed
+    else:
+        assert False, "current method is not support!"
+
+    return func_transformed
