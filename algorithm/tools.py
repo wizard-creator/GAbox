@@ -16,7 +16,7 @@ import numpy as np
 import warnings
 import sys
 import multiprocessing
-import ray
+# import ray
 import logging
 import queue
 
@@ -111,19 +111,19 @@ def func_transformer(func):
 
         return func_transformed
 
-    elif mode == 'ray':
-        def func_transformed(X, train_data):
-            size_pop = len(X)
-            result_ids = []
+    # elif mode == 'ray':
+    #     def func_transformed(X, train_data):
+    #         size_pop = len(X)
+    #         result_ids = []
 
-            for i in range(size_pop):
-                result_id = func.remote(train_data, X[i])
-                result_ids.append(result_id)
+    #         for i in range(size_pop):
+    #             result_id = func.remote(train_data, X[i])
+    #             result_ids.append(result_id)
 
-            results = ray.get(result_ids)
-            return np.array(results)
+    #         results = ray.get(result_ids)
+    #         return np.array(results)
 
-        return func_transformed
+    #     return func_transformed
 
     elif mode == 'common':  # common & others
         def func_transformed(X):
